@@ -53,10 +53,31 @@ def allocate_shapes(shapes, input_column_name, output_column_name):
     first_half_ids = set()
 
     for shape in sorted(shapes, key=lambda shape: (shape['properties'][input_column_name] / shapely.geometry.shape(shape['geometry']).area) ):
-        so_far += shape['properties'][input_column_name]
-        shape['properties'][output_column_name] = 1
-        if so_far > half:
+        # would including this item put us over half way point?
+        this_value = shape['properties'][input_column_name]
+        if so_far + this_value == half:
+            # include this item, then stop
+            so_far += shape['properties'][input_column_name]
+            shape['properties'][output_column_name] = 1
             break
+        elif so_far + this_value > half:
+            # So this is the last item we look at. We should assign it to the
+            # first half if it would result in less of a difference from the
+            # target half way
+            if (so_far + this_value) - half < half - so_far:
+                # If we include this item, we'll be closer to the target
+                # halfway point than if we don't. So include it
+                so_far += shape['properties'][input_column_name]
+                shape['properties'][output_column_name] = 1
+
+            # But regardless, we should stop now.
+            break
+        elif so_far + this_value < half:
+            # Still a good bit to go, so assign this shape to this half
+            so_far += shape['properties'][input_column_name]
+            shape['properties'][output_column_name] = 1
+        else:
+            raise NotImplementedError("Impossible code path")
 
     return shapes, total, so_far
 
